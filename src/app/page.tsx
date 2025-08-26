@@ -118,8 +118,8 @@ export default function Home() {
       }
       
       // Fallback to direct rendering if async fails
-      console.log('Falling back to basic rendering...');
-      const response = await fetch('/api/generate-video-basic', {
+      console.log('Falling back to full rendering...');
+      const response = await fetch('/api/generate-video-simple', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

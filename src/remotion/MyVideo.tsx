@@ -9,7 +9,7 @@ export interface VideoProps {
 // Helper function to create particle animations
 const Particle = ({ delay, x, y }: { delay: number, x: number, y: number }) => {
   const frame = useCurrentFrame();
-  const { fps } = useVideoConfig();
+  const { fps, durationInFrames } = useVideoConfig();
   
   const opacity = spring({
     frame: frame - delay,
@@ -18,7 +18,7 @@ const Particle = ({ delay, x, y }: { delay: number, x: number, y: number }) => {
   });
   
   const scale = interpolate(opacity, [0, 1], [0, 1]);
-  const rotation = interpolate(frame, [0, 300], [0, 360]);
+  const rotation = interpolate(frame, [0, durationInFrames], [0, 360]);
   
   return (
     <div
@@ -106,7 +106,7 @@ export const MyVideo: React.FC<VideoProps> = ({
   videoText 
 }) => {
   const frame = useCurrentFrame();
-  const { fps, width, height } = useVideoConfig();
+  const { fps, width, height, durationInFrames } = useVideoConfig();
   
   // Enhanced spring animations with better timing
   const titleAnimation = spring({
@@ -141,7 +141,7 @@ export const MyVideo: React.FC<VideoProps> = ({
   const nameRotation = interpolate(nameAnimation, [0, 1], [-10, 0]);
   
   // Background gradient animation
-  const gradientRotation = interpolate(frame, [0, 300], [0, 360]);
+  const gradientRotation = interpolate(frame, [0, durationInFrames], [0, 360]);
   
   // Generate particles
   const particles = Array.from({ length: 15 }, (_, i) => ({

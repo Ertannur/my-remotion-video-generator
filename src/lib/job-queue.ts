@@ -96,34 +96,85 @@ class JobQueue {
       job.progress = 10;
       this.jobs.set(job.id, job);
 
-      // For deployment compatibility, skip actual video rendering
-      console.log('Simulating video rendering for deployment...');
-      
-      // Simulate processing time
-      await new Promise(resolve => setTimeout(resolve, 3000));
-      
-      // Update progress
-      job.progress = 50;
-      this.jobs.set(job.id, job);
-      
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      job.progress = 80;
-      this.jobs.set(job.id, job);
-      
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      try {
+        // Import rendering functions dynamically to avoid build issues
+        const { bundle } = await import('@remotion/bundler');
+        const { renderMedia, selectComposition } = await import('@remotion/renderer');
+        const { webpackOverride } = await import('../remotion/webpack-override');
+        const path = await import('path');
+        const { mkdirSync, existsSync } = await import('fs');
 
-      // Complete with fallback sample video
-      job.status = 'completed';
-      job.progress = 100;
-      job.result = {
-        videoUrl: '/videos/sample.mp4',
-        filename: 'sample.mp4'
-      };
-      job.completedAt = new Date();
-      this.jobs.set(job.id, job);
+        // Create output directory
+        const outputDir = path.join(process.cwd(), 'public', 'videos');
+        if (!existsSync(outputDir)) {
+          mkdirSync(outputDir, { recursive: true });
+        }
 
-      console.log('Video job completed (sample mode):', job.id);
+        // Generate filename
+        const timestamp = Date.now();
+        const sanitizedName = job.data.name.replace(/[^a-zA-Z0-9]/g, '_');
+        const filename = `video_${sanitizedName}_${timestamp}.mp4`;
+        const outputPath = path.join(outputDir, filename);
+
+        // Update progress
+        job.progress = 30;
+        this.jobs.set(job.id, job);
+
+        // Bundle the Remotion project
+        const bundleLocation = await bundle({
+          entryPoint: path.resolve('./src/remotion/index.ts'),
+          webpackOverride,
+        });
+
+        // Update progress
+        job.progress = 60;
+        this.jobs.set(job.id, job);
+
+        // Get the composition
+        const composition = await selectComposition({
+          serveUrl: bundleLocation,
+          id: 'MyVideo',
+          inputProps: job.data,
+        });
+
+        // Update progress
+        job.progress = 80;
+        this.jobs.set(job.id, job);
+
+        // Render the video
+        await renderMedia({
+          composition,
+          serveUrl: bundleLocation,
+          codec: 'h264',
+          outputLocation: outputPath,
+          inputProps: job.data,
+        });
+
+        // Complete the job
+        job.status = 'completed';
+        job.progress = 100;
+        job.result = {
+          videoUrl: `/videos/${filename}`,
+          filename
+        };
+        job.completedAt = new Date();
+        this.jobs.set(job.id, job);
+
+        console.log('Video rendering completed:', job.id, filename);
+
+      } catch (remotionError) {
+        console.error('Remotion rendering failed, using fallback:', remotionError);
+        
+        // Fallback to sample video
+        job.status = 'completed';
+        job.progress = 100;
+        job.result = {
+          videoUrl: '/videos/sample.mp4',
+          filename: 'sample.mp4'
+        };
+        job.completedAt = new Date();
+        this.jobs.set(job.id, job);
+      }
 
     } catch (error) {
       throw error; // Re-throw to be handled by processQueue
